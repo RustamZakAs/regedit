@@ -1,18 +1,26 @@
 ﻿using System;
 using System.IO;
+using System.Net;
 using System.Text;
 //using System.Linq;
+using Microsoft.Win32;
 using System.Diagnostics;
+using System.Net.Sockets;
 //using System.Threading.Tasks;
 using System.Collections.Generic;
-using Microsoft.Win32;
 
 namespace regedit
 {
     class Program
     {
+        static int port = 8005; // порт для приема входящих запросов
+
         static void Main(string[] args)
         {
+
+            Metanit();
+
+
             //ProcessStartInfo startInfo = new ProcessStartInfo();
             //startInfo.FileName = "gpedit.msc";
             //Process.Start(startInfo);
@@ -23,8 +31,8 @@ namespace regedit
             //Microsoft.Win32.Registry.LocalMachine.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\Policies\System");
             //Microsoft.Win32.Registry.LocalMachine.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\Policies\System\ActiveDesktop");
 
-            DisableTaskManager(false);
-            NoChangingWallPaper(false);
+            //--DisableTaskManager(false);
+            //--NoChangingWallPaper(false);
             //Console.ReadKey();
         }
 
@@ -169,6 +177,145 @@ namespace regedit
                 status = false;
             }
             return status;
+        }
+
+        public static void Metanit()
+        {
+            /*
+            IPHostEntry host1 = Dns.GetHostEntry("www.microsoft.com");
+            Console.WriteLine(host1.HostName);
+            foreach (IPAddress ip in host1.AddressList)
+                Console.WriteLine(ip.ToString());
+
+            Console.WriteLine();
+
+            IPHostEntry host2 = Dns.GetHostEntry("google.com");
+            Console.WriteLine(host2.HostName);
+            foreach (IPAddress ip in host2.AddressList)
+            Console.WriteLine(ip.ToString());
+            */
+
+
+            // получаем адреса для запуска сокета
+            IPEndPoint ipPoint = new IPEndPoint(IPAddress.Parse("127.0.0.1"), port);
+
+            // создаем сокет
+            Socket listenSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            try
+            {
+                // связываем сокет с локальной точкой, по которой будем принимать данные
+                listenSocket.Bind(ipPoint);
+
+                // начинаем прослушивание
+                listenSocket.Listen(10);
+
+                Console.WriteLine("Сервер запущен. Ожидание подключений...");
+
+                while (true)
+                {
+                    Socket handler = listenSocket.Accept();
+                    // получаем сообщение
+                    StringBuilder builder = new StringBuilder();
+                    int bytes = 0; // количество полученных байтов
+                    byte[] data = new byte[256]; // буфер для получаемых данных
+
+                    do
+                    {
+                        bytes = handler.Receive(data);
+                        builder.Append(Encoding.Unicode.GetString(data, 0, bytes));
+                    }
+                    while (handler.Available > 0);
+
+                    Console.WriteLine(DateTime.Now.ToShortTimeString() + ": " + builder.ToString());
+
+                    // отправляем ответ
+                    string message = "ваше сообщение доставлено";
+                    data = Encoding.Unicode.GetBytes(message);
+                    handler.Send(data);
+                    // закрываем сокет
+                    handler.Shutdown(SocketShutdown.Both);
+                    handler.Close();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+        }
+    }
+
+    class MyTcpListener
+    {
+        public static void MyTcpListener1()
+        {
+            TcpListener server = null;
+            try
+            {
+                // Set the TcpListener on port 13000.
+                Int32 port = 13000;
+                IPAddress localAddr = IPAddress.Parse("127.0.0.1");
+
+                // TcpListener server = new TcpListener(port);
+                server = new TcpListener(localAddr, port);
+
+                // Start listening for client requests.
+                server.Start();
+
+                // Buffer for reading data
+                Byte[] bytes = new Byte[256];
+                String data = null;
+
+                // Enter the listening loop.
+                while (true)
+                {
+                    Console.Write("Waiting for a connection... ");
+
+                    // Perform a blocking call to accept requests.
+                    // You could also user server.AcceptSocket() here.
+                    TcpClient client = server.AcceptTcpClient();
+                    Console.WriteLine("Connected!");
+
+                    data = null;
+
+                    // Get a stream object for reading and writing
+                    NetworkStream stream = client.GetStream();
+
+                    int i;
+
+                    // Loop to receive all the data sent by the client.
+                    while ((i = stream.Read(bytes, 0, bytes.Length)) != 0)
+                    {
+                        // Translate data bytes to a ASCII string.
+                        data = System.Text.Encoding.ASCII.GetString(bytes, 0, i);
+                        Console.WriteLine("Received: {0}", data);
+
+                        // Process the data sent by the client.
+                        data = data.ToUpper();
+
+                        byte[] msg = System.Text.Encoding.ASCII.GetBytes(data);
+
+                        // Send back a response.
+                        stream.Write(msg, 0, msg.Length);
+                        Console.WriteLine("Sent: {0}", data);
+                    }
+
+                    // Shutdown and end connection
+                    client.Close();
+                }
+            }
+            catch (SocketException e)
+            {
+                Console.WriteLine("SocketException: {0}", e);
+            }
+            finally
+            {
+                // Stop listening for new clients.
+                server.Stop();
+            }
+
+
+            Console.WriteLine("\nHit enter to continue...");
+            Console.Read();
         }
     }
 }
